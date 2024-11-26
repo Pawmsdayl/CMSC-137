@@ -2,7 +2,8 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import scrolledtext
-from crc import crc_validate
+
+from crc import crc_encode, crc_validate
 
 # GLOBAL VARIABLES
 clients = []
@@ -11,11 +12,13 @@ clients = []
 def handle_client(client_socket: socket.socket, client_address):
     print(f"[NEW CONNECTION] {client_address} connected.")
     name = client_socket.recv(1024).decode()
-    broadcast(f"{name} has joined the chat.", color="green")
+    message =f"{name} has joined the chat."
+    welcome_message = crc_encode(message, "10011")
+    broadcast(welcome_message)
     
     while True:
         try:
-            generator = "1101"  # Example generator polynomial
+            generator = "10011"  # Example generator polynomial
             transmitted_message = client_socket.recv(1024).decode()
             
             if crc_validate(transmitted_message, generator):
@@ -23,47 +26,81 @@ def handle_client(client_socket: socket.socket, client_address):
                 original_message = ''.join(
                     chr(int(original_message_binary[i:i+8], 2)) for i in range(0, len(original_message_binary), 8)
                 )
-                broadcast(f"[{name}] {original_message}", client_socket)
+                broadcast(original_message, client_socket, sender_name=name, valid=True)
             else:
-                broadcast(f"[{name}] Sent Invalid Message!", client_socket, color="red")
+                broadcast(transmitted_message, client_socket, sender_name=name, valid=False)
             
         except Exception as e:
             break
     
     client_socket.close()
     clients.remove(client_socket)
-    broadcast(f"{name} has left the chat.", color="red")
+    broadcast(f"{name} has left the chat.")
 
 def broadcast(
-        message : str, 
-        client_socket : socket.socket = None, 
-        color : str = "white"
-    ):
-    """ Handles broadcasting messages to all clients. """
-    
-    # insert message into chat area
-    chat_area.config(state=tk.NORMAL)                   # enable editing
-    chat_area.insert(tk.END, message + "\n", color)     # insert message
-    chat_area.config(state=tk.DISABLED)                 # disable editing
-    chat_area.yview(tk.END)                             # scroll to end
-    
-    # format message with color
-    formatted_message = f"color:{color}|{message}"
-    
-    # send message to all clients except sender
+    message: str,
+    client_socket: socket.socket = None,
+    sender_name: str = "SERVER",
+    valid: bool = None
+):
+    """Handles broadcasting messages to all clients."""
+
+    if valid is not None:
+        if valid:
+            # Extract the binary message and decode to ASCII (7 bits per character)
+            original_message_binary = message[:-(len("10011") - 1)]
+            translated_message = ''.join(
+                chr(int(original_message_binary[i:i + 7], 2)) for i in range(0, len(original_message_binary), 7)
+            )
+            message = (
+                f"Valid Message\n"
+                f"{sender_name} > {translated_message}\n"
+                f"\tValid: Yes\n"
+                f"\tTranslated: {translated_message}"
+            )
+        else:
+            message = (
+                f"Invalid Message\n"
+                f"{sender_name} > {message}\n"
+                f"\tValid: No"
+            )
+
+
+    # Display message in the server chat area
+    chat_area.config(state=tk.NORMAL)           # Enable editing
+    chat_area.insert(tk.END, message + "\n")    # Insert message
+    chat_area.config(state=tk.DISABLED)         # Disable editing
+    chat_area.yview(tk.END)                     # Scroll to end
+
+    # Send message to all clients except sender
     for client in clients:
         if client != client_socket:
-            client.send(formatted_message.encode())
+            client.send(message.encode())
+
 
 def send_server_message(event=None):
-    """ Sends messages from the server to all clients. """
-    
-    # retrieve message from server message entry
+    """Sends messages from the server to all clients."""
+    global chat_area
+    generator = "10011"  # Example generator polynomial
+
+    # Retrieve the server message from the input area
     message = server_message_entry.get("1.0", tk.END).strip()
-    
-    # broadcast, and clear server message entry
+
+    # Encode with CRC and broadcast
     if message:
-        broadcast(f"[SERVER] {message}")
+        #binary_message = ''.join(format(ord(c), '07b') for c in message)
+        encoded_message = crc_encode(message, generator)
+
+        # Broadcast the encoded message to clients
+        broadcast(encoded_message, sender_name="SERVER", valid=True)
+
+        # Display the server message in the server's GUI
+        chat_area.config(state=tk.NORMAL)
+        chat_area.insert(tk.END, f"server > {message}\n")
+        chat_area.config(state=tk.DISABLED)
+        chat_area.yview(tk.END)
+
+        # Clear the server input field
         server_message_entry.delete("1.0", tk.END)
 
 # SERVER SETUP
@@ -98,8 +135,8 @@ server_window.configure(bg="#1e222b")
 chat_frame = tk.Frame(server_window, bg="#1e222b")
 chat_frame.pack(pady=10, padx=10)
 chat_area = scrolledtext.ScrolledText(chat_frame, state='disabled', height=18, bg="#1e222b", fg='white')
-chat_area.tag_config("green", foreground="green")  
-chat_area.tag_config("red", foreground="red")       
+# chat_area.tag_config("green", foreground="green")  
+# chat_area.tag_config("red", foreground="red")       
 chat_area.pack(padx=10, pady=10)
 
 # server message entry

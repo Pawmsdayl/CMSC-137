@@ -1,0 +1,1 @@
+binary_message = ''.join(format(ord(c), '07b') for c in message)
