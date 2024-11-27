@@ -15,77 +15,91 @@ def receive_messages():
     """Receives messages from the server and displays them in the chat area."""
     global chat_area
 
-    generator = "10011"  # Example generator polynomial
-
     while True:
         try:
             # Receive the encoded message from the server
             message = client_socket.recv(1024).decode()
 
             # Parse the message for validity
-            if crc_validate(message, generator):
-                original_message_binary = message[:-(len(generator) - 1)]
+            if crc_validate(message, "10011"):
                 translated_message = ''.join(
-                    chr(int(original_message_binary[i:i + 7], 2)) for i in range(0, len(original_message_binary), 7)
+                    chr(int(message[i:i+7], 2)) for i in range(0, len(message) - 4, 7)
                 )
-                display_message = (
-                    f"Valid Message\n"
-                    f"server > {translated_message}\n"
-                    f"\tValid: Yes\n"
-                    f"\tTranslated: {translated_message}"
-                )
+                valid_status = "Yes"
             else:
-                display_message = (
-                    f"Invalid Message\n"
-                    f"server > {message}\n"
-                    f"\tValid: No"
-                )
+                translated_message = "N/A"
+                valid_status = "No"
 
-            # Display the message in the chat area
+            # Display message in the chat area
             chat_area.config(state=tk.NORMAL)
-            chat_area.insert(tk.END, display_message + "\n")
+            chat_area.insert(
+                tk.END,
+                f"{sender_name}: {message}\n"
+                f"\tValid: {valid_status}\n"
+                f"\tTranslated: {translated_message}\n"
+            )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
-
         except Exception as e:
-            print(e)
+            print(f"Error receiving message: {e}")
             handle_disconnection()
             break
 
+
 def handle_disconnection():
-    """ Handles disconnection from the server. """
-    
-    messagebox.showerror("Error", "An error occurred or the server closed the connection.")
-    chat_window.quit()  
+    global client_socket
+    try:
+        # Send a "left the chat" message to the server
+        client_socket.send(f"{name} left the chat.".encode())
+    except Exception as e:
+        print(f"Error during disconnection: {e}")
+    finally:
+        try:
+            client_socket.close()  # Close the socket properly
+        except:
+            pass  # In case the socket is already closed
+        chat_window.quit()  # Quit the chat window cleanly
+        client_socket
+        client_socket = None  # Ensure socket is cleaned up
 
-from crc import crc_encode, introduce_error
+    # Modify the part where the client window is closed
+    chat_window.protocol("WM_DELETE_WINDOW", handle_disconnection)
 
 
-def send_message():
-    global name
-    
+def send_message(event=None):
+    global name, client_socket
+
     message = message_entry.get("1.0", tk.END).strip()
     if message:
         try:
-            generator = "10011"  # Example generator polynomial
-            # binary_message = ''.join(format(ord(c), '07b') for c in message)
-            encoded_message = crc_encode(message, generator)
-            transmitted_message = introduce_error(encoded_message)  # Simulate errors
-            
+            # Convert ASCII to binary
+            binary_message = ''.join(format(ord(char), '07b') for char in message)
+
+            # Encode with CRC
+            crc_message = crc_encode(binary_message, "10011")
+
+            # Introduce a 5% error
+            transmitted_message = introduce_error(crc_message)
+
+            # Send message to peer
             client_socket.send(transmitted_message.encode())
-            
+
+            # Display on GUI as sender
             chat_area.config(state=tk.NORMAL)
-            chat_area.insert(tk.END, f"Sender > {message}\n\tSent: {transmitted_message}\n")
+            chat_area.insert(
+                tk.END,
+                f"Sender > {message}\n\tSent: {transmitted_message}\n"
+            )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
-        
         except Exception as e:
+            print(f"Error sending message: {e}")
             handle_disconnection()
-        
         message_entry.delete("1.0", tk.END)
         if message == "[bye]":
             sleep(0.1)
             client_socket.close()
+            chat_window.quit()
             chat_window.quit()
 
 
