@@ -1,5 +1,6 @@
 import random
 
+
 def crc_encode(message: str, generator: str) -> str:
     """
     Encodes the message using the CRC algorithm.
@@ -8,9 +9,10 @@ def crc_encode(message: str, generator: str) -> str:
     :return: The encoded message.
     """
     k = len(generator) - 1
-    padded_message = message + "0" * k
+    binary_message = ''.join(format(ord(c), '07b') for c in message)
+    padded_message = binary_message + "0" * k
     remainder = modulo2_division(padded_message, generator)
-    return message + remainder
+    return binary_message + remainder
 
 def crc_validate(encoded_message: str, generator: str) -> bool:
     """
