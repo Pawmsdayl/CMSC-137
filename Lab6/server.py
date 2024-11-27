@@ -19,6 +19,9 @@ def handle_client(client_socket: socket.socket, client_address):
         try:
             # Receive the transmitted message (in binary)
             received_message = client_socket.recv(1024).decode()
+            
+            print("weh")
+            print(received_message)
 
             # Validate the received message using CRC
             is_valid = crc_validate(received_message, "10011")
@@ -34,7 +37,8 @@ def handle_client(client_socket: socket.socket, client_address):
                 valid_status = "No"
 
             # Broadcast the message to all other clients
-            broadcast(f"{name}: {translated_message}", client_socket, sender_name=name)
+            broadcast_message = crc_encode(f"{name}: {translated_message}", "10011")
+            broadcast(broadcast_message, client_socket, sender_name=name)
 
         except Exception as e:
             print(f"Error handling client message: {e}")
@@ -92,11 +96,11 @@ def send_server_message(event=None):
     message = server_message_entry.get("1.0", tk.END).strip()
     if message:
         try:
-            # Convert the message to binary using 7-bit ASCII
-            binary_message = ''.join(format(ord(char), '07b') for char in message)
+            
+            message = f"[SERVER]: {message}"
 
             # Encode with CRC
-            crc_message = crc_encode(binary_message, "10011")
+            crc_message = crc_encode(message, "10011")
 
             # Introduce a 5% error to the message
             transmitted_message = introduce_error(crc_message)
@@ -109,7 +113,7 @@ def send_server_message(event=None):
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
                 tk.END,
-                f"[SERVER]: {message}\n\tSent: {transmitted_message}\n"
+                f"{message}\n\tSent: {transmitted_message}\n"
             )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)

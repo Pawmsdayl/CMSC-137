@@ -27,6 +27,7 @@ def receive_messages():
                 translated_message = ''.join(
                     chr(int(message[i:i+7], 2)) for i in range(0, len(message) - 4, 7)
                 )
+                
                 valid_status = "Yes"
             else:
                 translated_message = "N/A"
@@ -85,6 +86,9 @@ def send_message(event=None):
 
             # Introduce a 5% error
             transmitted_message = introduce_error(crc_message)
+            
+            print(transmitted_message)
+            print("yesmkj")
 
             # Send message to peer
             client_socket.send(transmitted_message.encode())
@@ -104,7 +108,6 @@ def send_message(event=None):
         if message == "[bye]":
             sleep(0.1)
             client_socket.close()
-            chat_window.quit()
             chat_window.quit()
 
 

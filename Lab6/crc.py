@@ -41,15 +41,24 @@ def modulo2_division(dividend: str, divisor: str) -> str:
     
     return "".join(dividend[-(divisor_length - 1):])
 
-def introduce_error(data: str, error_rate=0.05) -> str:
+def introduce_error(data: str, error_rate=0.5) -> str:
     """
     Introduces random errors into the binary string at a specified error rate.
     :param data: The binary string.
     :param error_rate: Probability of introducing an error.
     :return: The modified string.
     """
-    data = list(data)
-    for i in range(len(data)):
-        if random.random() < error_rate:
-            data[i] = "1" if data[i] == "0" else "0"
-    return "".join(data)
+    
+    
+    if random.random() < error_rate:
+            
+        index_error = random.randint(0, len(data) -1)
+        old_data = list(data)
+    
+        new_value = old_data[index_error] = '1' if data[index_error] == '0' else '0'
+        
+        old_data[index_error] = new_value
+        
+        return "".join(old_data)
+    
+    return data
