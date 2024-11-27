@@ -11,10 +11,9 @@ clients = []
 # CORE FUNCTIONS
 def handle_client(client_socket: socket.socket, client_address):
     print(f"[NEW CONNECTION] {client_address} connected.")
-    name = client_socket.recv(1024).decode()
-    greetings =f"{name} has joined the chat."
-    welcome_message = crc_encode(greetings, "10011")
-    broadcast(welcome_message, client_socket, is_join_message=True, sender_name=name)
+    name = client_socket.recv(1024).decode()  # Get client's name
+    connect_message = f"{name} has joined the chat."
+    broadcast(connect_message, client_socket, is_join_message=True, sender_name=name)
     
     while True:
         try:
@@ -82,7 +81,7 @@ def broadcast(message, client_socket=None, is_join_message=False, sender_name=No
         if client != client_socket:
             # Send the message as binary (after CRC encoding and error introduction)
             binary_message = ''.join(format(ord(char), '07b') for char in message)
-            crc_message = crc_encode(binary_message)
+            crc_message = crc_encode(binary_message, )
             transmitted_message = introduce_error(crc_message)
             client.send(transmitted_message.encode())
 
@@ -97,7 +96,7 @@ def send_server_message(event=None):
             binary_message = ''.join(format(ord(char), '07b') for char in message)
 
             # Encode with CRC
-            crc_message = crc_encode(binary_message)
+            crc_message = crc_encode(binary_message, "10011")
 
             # Introduce a 5% error to the message
             transmitted_message = introduce_error(crc_message)
@@ -142,21 +141,18 @@ def start_server():
         thread.start()
 
 # GUI SETUP
-# server window
+clients = []
 server_window = tk.Tk()
 server_window.title("Server")
 server_window.geometry("550x500")
 server_window.configure(bg="#1e222b")
 
-# chat area
 chat_frame = tk.Frame(server_window, bg="#1e222b")
 chat_frame.pack(pady=10, padx=10)
+
 chat_area = scrolledtext.ScrolledText(chat_frame, state='disabled', height=18, bg="#1e222b", fg='white')
-# chat_area.tag_config("green", foreground="green")  
-# chat_area.tag_config("red", foreground="red")       
 chat_area.pack(padx=10, pady=10)
 
-# server message entry
 server_message_entry = tk.Text(server_window, height=4, bg="#1e222b", fg='white', pady=10, padx=10)
 server_message_entry.pack(pady=10, padx=20)
 server_message_entry.bind('<Return>', send_server_message)
@@ -164,6 +160,7 @@ server_message_entry.bind('<Return>', send_server_message)
 send_button = tk.Button(server_window, text="Send to Clients", command=send_server_message, fg="#e4e7ec", bg="#212630", padx=8, pady=3)
 send_button.pack(pady=10)
 
-# start server
+# Start the server in a separate thread
 threading.Thread(target=start_server, daemon=True).start()
+
 server_window.mainloop()
