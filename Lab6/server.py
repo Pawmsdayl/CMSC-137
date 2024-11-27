@@ -2,6 +2,7 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import scrolledtext
+
 from crc import crc_encode, crc_validate, introduce_error
 
 # GLOBAL VARIABLES
@@ -72,7 +73,7 @@ def broadcast(
         chat_area.insert(
             tk.END,
             f"Name: {sender_name}\n"
-            f"Messagez: {received_message}\n"
+            f"Message: {received_message}\n"
             f"Valid: {valid_status}\n"
             f"Translated: {translated_message}\n\n"
         )
