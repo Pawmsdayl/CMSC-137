@@ -2,18 +2,23 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import scrolledtext
-
 from crc import crc_encode, crc_validate, introduce_error
 
 # GLOBAL VARIABLES
 clients = []
 
 # CORE FUNCTIONS
-def handle_client(client_socket: socket.socket, client_address):
+def handle_client(
+        client_socket: socket.socket, 
+        client_address
+    ):
+    """ Handles client connections, messages, and disconnection. """
+    
+    # broadcast connection
     print(f"[NEW CONNECTION] {client_address} connected.")
-    name = client_socket.recv(1024).decode()  # Get client's name
+    name = client_socket.recv(1024).decode() 
     connect_message = f"{name} has joined the chat."
-    broadcast(connect_message, client_socket, is_join_message=True, sender_name=name)
+    broadcast(received_message=connect_message, client_socket=client_socket, is_join_message=True)
     
     while True:
         try:
@@ -22,10 +27,10 @@ def handle_client(client_socket: socket.socket, client_address):
             
             print("weh")
             print(received_message)
-
+            
             # Validate the received message using CRC
             is_valid = crc_validate(received_message, "10011")
-
+            
             if is_valid:
                 # Translate the message from binary to ASCII
                 translated_message = ''.join(
@@ -35,11 +40,10 @@ def handle_client(client_socket: socket.socket, client_address):
             else:
                 translated_message = "N/A"
                 valid_status = "No"
-
+            
             # Broadcast the message to all other clients
-            broadcast_message = crc_encode(f"{name}: {translated_message}", "10011")
-            broadcast(broadcast_message, client_socket, sender_name=name)
-
+            broadcast(received_message, translated_message, valid_status, name, client_socket)
+        
         except Exception as e:
             print(f"Error handling client message: {e}")
             break
@@ -49,32 +53,30 @@ def handle_client(client_socket: socket.socket, client_address):
     clients.remove(client_socket)
     print(f"[CLIENT DISCONNECTED] {client_address} disconnected.")
 
-def broadcast(message, client_socket=None, is_join_message=False, sender_name=None):
+def broadcast(
+        received_message, 
+        translated_message=None, 
+        valid_status=None, 
+        sender_name=None,
+        client_socket=None, 
+        is_join_message=False
+    ):
+    
     chat_area.config(state=tk.NORMAL)
-
+    
     # If it's a join message, do not apply CRC checks or translation
     if is_join_message:
-        chat_area.insert(tk.END, f"{sender_name}: {message}\n")
+        chat_area.insert(tk.END, f"{received_message}\n")
     else:
         # Otherwise, apply CRC validation and translation
-        received_message = message
-        is_valid = crc_validate(received_message, "10011")
-
-        if is_valid:
-            # Convert binary to ASCII for valid message
-            translated_message = ''.join(
-                chr(int(received_message[i:i+7], 2)) for i in range(0, len(received_message) - 4, 7)
-            )
-            valid_status = "Yes"
-        else:
-            translated_message = "N/A"
-            valid_status = "No"
+        print(f"Message: {received_message}")
         
         chat_area.insert(
             tk.END,
-            f"{sender_name}: {received_message}\n"
-            f"\tValid: {valid_status}\n"
-            f"\tTranslated: {translated_message}\n"
+            f"Name: {sender_name}\n"
+            f"Messagez: {received_message}\n"
+            f"Valid: {valid_status}\n"
+            f"Translated: {translated_message}\n\n"
         )
 
     chat_area.config(state=tk.DISABLED)
@@ -84,12 +86,12 @@ def broadcast(message, client_socket=None, is_join_message=False, sender_name=No
     for client in clients:
         if client != client_socket:
             # Send the message as binary (after CRC encoding and error introduction)
-            binary_message = ''.join(format(ord(char), '07b') for char in message)
+            binary_message = ''.join(format(ord(char), '07b') for char in received_message)
             crc_message = crc_encode(binary_message, )
             transmitted_message = introduce_error(crc_message)
             client.send(transmitted_message.encode())
 
-def send_server_message(event=None):
+def send_server_message():
     global clients
 
     # Retrieve the message from the input

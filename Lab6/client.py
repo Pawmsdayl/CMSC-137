@@ -72,7 +72,7 @@ def handle_disconnection():
     chat_window.protocol("WM_DELETE_WINDOW", handle_disconnection)
 
 
-def send_message(event=None):
+def send_message():
     global name, client_socket
 
     message = message_entry.get("1.0", tk.END).strip()
@@ -97,7 +97,7 @@ def send_message(event=None):
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
                 tk.END,
-                f"Sender > {message}\n\tSent: {transmitted_message}\n"
+                f"Name: {message}\nSent: {transmitted_message}\n\n"
             )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
