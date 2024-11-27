@@ -19,16 +19,22 @@ def receive_messages():
         try:
             # Receive the encoded message from the server
             message = client_socket.recv(1024).decode()
+            
+            is_valid = crc_validate(message, "10011")
 
             # Parse the message for validity
-            if crc_validate(message, "10011"):
+            if is_valid:
                 translated_message = ''.join(
                     chr(int(message[i:i+7], 2)) for i in range(0, len(message) - 4, 7)
                 )
+                
                 valid_status = "Yes"
             else:
                 translated_message = "N/A"
                 valid_status = "No"
+                
+            
+            sender_name = "SERVER"
 
             # Display message in the chat area
             chat_area.config(state=tk.NORMAL)
@@ -66,20 +72,23 @@ def handle_disconnection():
     chat_window.protocol("WM_DELETE_WINDOW", handle_disconnection)
 
 
-def send_message(event=None):
+def send_message():
     global name, client_socket
 
     message = message_entry.get("1.0", tk.END).strip()
     if message:
         try:
             # Convert ASCII to binary
-            binary_message = ''.join(format(ord(char), '07b') for char in message)
+            # binary_message = ''.join(format(ord(char), '07b') for char in message)
 
             # Encode with CRC
-            crc_message = crc_encode(binary_message, "10011")
+            crc_message = crc_encode(message, "10011")
 
             # Introduce a 5% error
             transmitted_message = introduce_error(crc_message)
+            
+            print(transmitted_message)
+            print("yesmkj")
 
             # Send message to peer
             client_socket.send(transmitted_message.encode())
@@ -88,7 +97,7 @@ def send_message(event=None):
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
                 tk.END,
-                f"Sender > {message}\n\tSent: {transmitted_message}\n"
+                f"Name: {message}\nSent: {transmitted_message}\n\n"
             )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
@@ -99,7 +108,6 @@ def send_message(event=None):
         if message == "[bye]":
             sleep(0.1)
             client_socket.close()
-            chat_window.quit()
             chat_window.quit()
 
 
@@ -123,33 +131,25 @@ def start_client(ip : str, name : str):
         login_window.deiconify() 
 
 def open_chatroom():
-    """ Creates and opens the chatroom interface. """
-    # GUI SETUP for Chat Room
-    
     global chat_window, chat_area, message_entry, name
-    
-    # create chatroom window
     login_window.withdraw()  # Hide login window
     chat_window = tk.Toplevel()
     chat_window.title(f"Chatroom - {name}")
     chat_window.geometry("550x550")
     chat_window.configure(bg="#1e222b")
-    
+
     chat_frame = tk.Frame(chat_window, bg="#1e222b")
     chat_frame.pack(pady=10, padx=10)
-    
-    # chat area
+
     tk.Label(chat_frame, text="Chat Area", bg="#1e222b", fg="white").pack(pady=5)
     chat_area = scrolledtext.ScrolledText(chat_frame, state='disabled', height=18, bg="#1e222b", fg='white')
     chat_area.pack(padx=10, pady=10)
-    
-    
-    # message entry
+
     tk.Label(chat_window, text="Enter Message", bg="#1e222b", fg="white").pack(pady=5)
     message_entry = tk.Text(chat_window, height=4, bg="#1e222b", fg='white', pady=10, padx=10)
     message_entry.pack(pady=10, padx=20)
     message_entry.bind('<Return>', send_message)
-    
+
     send_button = tk.Button(chat_window, text="Send", command=send_message, fg="#e4e7ec", bg="#212630", padx=20, pady=3)
     send_button.pack(pady=10)
 
@@ -168,13 +168,11 @@ def login():
         messagebox.showwarning("Input Error", "Please enter both IP address and name.")
 
 # GUI SETUP for Login
-# login window
 login_window = tk.Tk()
 login_window.title("Login")
 login_window.geometry("300x200")
 login_window.configure(bg="#1e222b")
 
-# login entries
 tk.Label(login_window, text="Enter Server IP:", bg="#1e222b", fg="white").pack(pady=5)
 ip_entry = tk.Entry(login_window)
 ip_entry.pack(pady=5)
@@ -186,5 +184,4 @@ name_entry.pack(pady=5)
 login_button = tk.Button(login_window, text="Login", command=login, fg="#e4e7ec", bg="#212630", padx=20, pady=3)
 login_button.pack(pady=20)
 
-# start login window
 login_window.mainloop()

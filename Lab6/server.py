@@ -2,28 +2,35 @@ import socket
 import threading
 import tkinter as tk
 from tkinter import scrolledtext
-
 from crc import crc_encode, crc_validate, introduce_error
 
 # GLOBAL VARIABLES
 clients = []
 
 # CORE FUNCTIONS
-def handle_client(client_socket: socket.socket, client_address):
+def handle_client(
+        client_socket: socket.socket, 
+        client_address
+    ):
+    """ Handles client connections, messages, and disconnection. """
+    
+    # broadcast connection
     print(f"[NEW CONNECTION] {client_address} connected.")
-    name = client_socket.recv(1024).decode()
-    greetings =f"{name} has joined the chat."
-    welcome_message = crc_encode(greetings, "10011")
-    broadcast(welcome_message, client_socket, is_join_message=True, sender_name=name)
+    name = client_socket.recv(1024).decode() 
+    connect_message = f"{name} has joined the chat."
+    broadcast(received_message=connect_message, client_socket=client_socket, is_join_message=True)
     
     while True:
         try:
             # Receive the transmitted message (in binary)
             received_message = client_socket.recv(1024).decode()
-
+            
+            print("weh")
+            print(received_message)
+            
             # Validate the received message using CRC
             is_valid = crc_validate(received_message, "10011")
-
+            
             if is_valid:
                 # Translate the message from binary to ASCII
                 translated_message = ''.join(
@@ -33,10 +40,10 @@ def handle_client(client_socket: socket.socket, client_address):
             else:
                 translated_message = "N/A"
                 valid_status = "No"
-
+            
             # Broadcast the message to all other clients
-            broadcast(f"{name}: {translated_message}", client_socket, sender_name=name)
-
+            broadcast(received_message, translated_message, valid_status, name, client_socket)
+        
         except Exception as e:
             print(f"Error handling client message: {e}")
             break
@@ -46,32 +53,30 @@ def handle_client(client_socket: socket.socket, client_address):
     clients.remove(client_socket)
     print(f"[CLIENT DISCONNECTED] {client_address} disconnected.")
 
-def broadcast(message, client_socket=None, is_join_message=False, sender_name=None):
+def broadcast(
+        received_message, 
+        translated_message=None, 
+        valid_status=None, 
+        sender_name=None,
+        client_socket=None, 
+        is_join_message=False
+    ):
+    
     chat_area.config(state=tk.NORMAL)
-
+    
     # If it's a join message, do not apply CRC checks or translation
     if is_join_message:
-        chat_area.insert(tk.END, f"{sender_name}: {message}\n")
+        chat_area.insert(tk.END, f"{received_message}\n")
     else:
         # Otherwise, apply CRC validation and translation
-        received_message = message
-        is_valid = crc_validate(received_message, "10011")
-
-        if is_valid:
-            # Convert binary to ASCII for valid message
-            translated_message = ''.join(
-                chr(int(received_message[i:i+7], 2)) for i in range(0, len(received_message) - 4, 7)
-            )
-            valid_status = "Yes"
-        else:
-            translated_message = "N/A"
-            valid_status = "No"
+        print(f"Message: {received_message}")
         
         chat_area.insert(
             tk.END,
-            f"{sender_name}: {received_message}\n"
-            f"\tValid: {valid_status}\n"
-            f"\tTranslated: {translated_message}\n"
+            f"Name: {sender_name}\n"
+            f"Messagez: {received_message}\n"
+            f"Valid: {valid_status}\n"
+            f"Translated: {translated_message}\n\n"
         )
 
     chat_area.config(state=tk.DISABLED)
@@ -81,23 +86,23 @@ def broadcast(message, client_socket=None, is_join_message=False, sender_name=No
     for client in clients:
         if client != client_socket:
             # Send the message as binary (after CRC encoding and error introduction)
-            binary_message = ''.join(format(ord(char), '07b') for char in message)
-            crc_message = crc_encode(binary_message)
+            binary_message = ''.join(format(ord(char), '07b') for char in received_message)
+            crc_message = crc_encode(binary_message, )
             transmitted_message = introduce_error(crc_message)
             client.send(transmitted_message.encode())
 
-def send_server_message(event=None):
+def send_server_message():
     global clients
 
     # Retrieve the message from the input
     message = server_message_entry.get("1.0", tk.END).strip()
     if message:
         try:
-            # Convert the message to binary using 7-bit ASCII
-            binary_message = ''.join(format(ord(char), '07b') for char in message)
+            
+            message = f"[SERVER]: {message}"
 
             # Encode with CRC
-            crc_message = crc_encode(binary_message)
+            crc_message = crc_encode(message, "10011")
 
             # Introduce a 5% error to the message
             transmitted_message = introduce_error(crc_message)
@@ -110,7 +115,7 @@ def send_server_message(event=None):
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
                 tk.END,
-                f"[SERVER]: {message}\n\tSent: {transmitted_message}\n"
+                f"{message}\n\tSent: {transmitted_message}\n"
             )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
@@ -142,21 +147,18 @@ def start_server():
         thread.start()
 
 # GUI SETUP
-# server window
+clients = []
 server_window = tk.Tk()
 server_window.title("Server")
 server_window.geometry("550x500")
 server_window.configure(bg="#1e222b")
 
-# chat area
 chat_frame = tk.Frame(server_window, bg="#1e222b")
 chat_frame.pack(pady=10, padx=10)
+
 chat_area = scrolledtext.ScrolledText(chat_frame, state='disabled', height=18, bg="#1e222b", fg='white')
-# chat_area.tag_config("green", foreground="green")  
-# chat_area.tag_config("red", foreground="red")       
 chat_area.pack(padx=10, pady=10)
 
-# server message entry
 server_message_entry = tk.Text(server_window, height=4, bg="#1e222b", fg='white', pady=10, padx=10)
 server_message_entry.pack(pady=10, padx=20)
 server_message_entry.bind('<Return>', send_server_message)
@@ -164,6 +166,7 @@ server_message_entry.bind('<Return>', send_server_message)
 send_button = tk.Button(server_window, text="Send to Clients", command=send_server_message, fg="#e4e7ec", bg="#212630", padx=8, pady=3)
 send_button.pack(pady=10)
 
-# start server
+# Start the server in a separate thread
 threading.Thread(target=start_server, daemon=True).start()
+
 server_window.mainloop()
