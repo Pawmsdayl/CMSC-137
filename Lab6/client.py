@@ -14,14 +14,14 @@ chat_area = None
 def receive_messages():
     """Receives messages from the server and displays them in the chat area."""
     global chat_area
-
-    while True:
+    
+    while True: 
         try:
             # Receive the encoded message from the server
             message = client_socket.recv(1024).decode()
             
             is_valid = crc_validate(message, "10011")
-
+            
             # Parse the message for validity
             if is_valid:
                 translated_message = ''.join(
@@ -32,17 +32,18 @@ def receive_messages():
             else:
                 translated_message = "N/A"
                 valid_status = "No"
-                
+            
             
             sender_name = "SERVER"
-
+            
             # Display message in the chat area
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
                 tk.END,
-                f"{sender_name}: {message}\n"
-                f"\tValid: {valid_status}\n"
-                f"\tTranslated: {translated_message}\n"
+                f"Name: {sender_name}\n"
+                f"Message: {message}\n"
+                f"Valid: {valid_status}\n"
+                f"Translated: {translated_message}\n\n"
             )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
@@ -53,6 +54,7 @@ def receive_messages():
 
 
 def handle_disconnection():
+    """Handles client disconnection from the server."""
     global client_socket
     try:
         # Send a "left the chat" message to the server
@@ -73,6 +75,7 @@ def handle_disconnection():
 
 
 def send_message():
+    """Sends a message from the client to the server."""
     global name, client_socket
 
     message = message_entry.get("1.0", tk.END).strip()
@@ -111,7 +114,7 @@ def send_message():
             chat_window.quit()
 
 
-def start_client(ip : str, name : str):
+def start_client(ip: str, name: str):
     """ Starts the client connection. """
     
     # establish client connection
@@ -131,25 +134,26 @@ def start_client(ip : str, name : str):
         login_window.deiconify() 
 
 def open_chatroom():
+    """Opens the chatroom window."""
     global chat_window, chat_area, message_entry, name
     login_window.withdraw()  # Hide login window
     chat_window = tk.Toplevel()
     chat_window.title(f"Chatroom - {name}")
     chat_window.geometry("550x550")
     chat_window.configure(bg="#1e222b")
-
+    
     chat_frame = tk.Frame(chat_window, bg="#1e222b")
     chat_frame.pack(pady=10, padx=10)
-
+    
     tk.Label(chat_frame, text="Chat Area", bg="#1e222b", fg="white").pack(pady=5)
     chat_area = scrolledtext.ScrolledText(chat_frame, state='disabled', height=18, bg="#1e222b", fg='white')
     chat_area.pack(padx=10, pady=10)
-
+    
     tk.Label(chat_window, text="Enter Message", bg="#1e222b", fg="white").pack(pady=5)
     message_entry = tk.Text(chat_window, height=4, bg="#1e222b", fg='white', pady=10, padx=10)
     message_entry.pack(pady=10, padx=20)
     message_entry.bind('<Return>', send_message)
-
+    
     send_button = tk.Button(chat_window, text="Send", command=send_message, fg="#e4e7ec", bg="#212630", padx=20, pady=3)
     send_button.pack(pady=10)
 

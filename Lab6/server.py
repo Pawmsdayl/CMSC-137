@@ -8,11 +8,8 @@ from crc import crc_encode, crc_validate, introduce_error
 clients = []
 
 # CORE FUNCTIONS
-def handle_client(
-        client_socket: socket.socket, 
-        client_address
-    ):
-    """ Handles client connections, messages, and disconnection. """
+def handle_client(client_socket: socket.socket, client_address: tuple):
+    """Handles client connections, messages, and disconnection."""
     
     # broadcast connection
     print(f"[NEW CONNECTION] {client_address} connected.")
@@ -43,24 +40,25 @@ def handle_client(
             
             # Broadcast the message to all other clients
             broadcast(received_message, translated_message, valid_status, name, client_socket)
-        
+            
         except Exception as e:
             print(f"Error handling client message: {e}")
             break
-
+    
     # Clean up client connection
     client_socket.close()
     clients.remove(client_socket)
     print(f"[CLIENT DISCONNECTED] {client_address} disconnected.")
 
 def broadcast(
-        received_message, 
-        translated_message=None, 
-        valid_status=None, 
-        sender_name=None,
-        client_socket=None, 
-        is_join_message=False
+        received_message: str, 
+        translated_message: str = None, 
+        valid_status: str = None, 
+        sender_name: str = None,
+        client_socket: socket.socket = None, 
+        is_join_message: bool = False
     ):
+    """Broadcasts messages to all clients."""
     
     chat_area.config(state=tk.NORMAL)
     
@@ -78,10 +76,10 @@ def broadcast(
             f"Valid: {valid_status}\n"
             f"Translated: {translated_message}\n\n"
         )
-
+    
     chat_area.config(state=tk.DISABLED)
     chat_area.yview(tk.END)
-
+    
     # Send the message to all clients except the sender
     for client in clients:
         if client != client_socket:
@@ -92,25 +90,26 @@ def broadcast(
             client.send(transmitted_message.encode())
 
 def send_server_message():
+    """Sends a message from the server to all clients."""
     global clients
-
+    
     # Retrieve the message from the input
     message = server_message_entry.get("1.0", tk.END).strip()
     if message:
         try:
             
             message = f"[SERVER]: {message}"
-
+            
             # Encode with CRC
             crc_message = crc_encode(message, "10011")
-
+            
             # Introduce a 5% error to the message
             transmitted_message = introduce_error(crc_message)
-
+            
             # Send the message to all clients
             for client in clients:
                 client.send(transmitted_message.encode())
-
+            
             # Display the sent message in the server GUI as the sender
             chat_area.config(state=tk.NORMAL)
             chat_area.insert(
@@ -121,13 +120,13 @@ def send_server_message():
             chat_area.yview(tk.END)
         except Exception as e:
             print(f"Error broadcasting server message: {e}")
-
+        
         # Clear the server input area
         server_message_entry.delete("1.0", tk.END)
 
 # SERVER SETUP
 def start_server():
-    """ Starts the server and listens for client connections. """
+    """Starts the server and listens for client connections."""
     
     # establish server connection
     server = socket.socket()
