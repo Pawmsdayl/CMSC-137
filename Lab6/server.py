@@ -52,11 +52,11 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
     print(f"[CLIENT DISCONNECTED] {client_address} disconnected.")
 
 def broadcast(
-        received_message: str, 
-        translated_message: str = None, 
-        valid_status: str = None, 
+        received_message: str,
+        translated_message: str = None,
+        valid_status: str = None,
         sender_name: str = None,
-        client_socket: socket.socket = None, 
+        client_socket: socket.socket = None,
         is_join_message: bool = False
     ):
     """Broadcasts messages to all clients."""
@@ -102,7 +102,7 @@ def send_server_message():
             message = f"[SERVER]: {message}"
             
             # Encode with CRC
-            crc_message = crc_encode(message, "10011")
+            crc_message, remainder = crc_encode(message, "10011")
             
             # Introduce a 5% error to the message
             transmitted_message = introduce_error(crc_message)
@@ -110,13 +110,30 @@ def send_server_message():
             # Send the message to all clients
             for client in clients:
                 client.send(transmitted_message.encode())
-            
+                
             # Display the sent message in the server GUI as the sender
             chat_area.config(state=tk.NORMAL)
-            chat_area.insert(
-                tk.END,
-                f"{message}\n\tSent: {transmitted_message}\n"
-            )
+            
+            
+            # Validate the transmitted message after error introduction
+            is_valid = crc_validate(transmitted_message, "10011")
+
+            # Check if the remainder is zero (valid) or non-zero (error)
+            if not is_valid:
+                chat_area.insert(
+                    tk.END,
+                    f"Message: {message}\n"
+                    f"Sent: {transmitted_message}\n"
+                    # f"Remainder: {remainder}\n"
+                    f"Message was not sent correctly\n\n"
+                )
+            else:
+                chat_area.insert(
+                    tk.END,
+                    f"Message: {message}\n"
+                    f"Sent: {transmitted_message}\n"
+                    f"Message sent successfully\n\n"
+                )
             chat_area.config(state=tk.DISABLED)
             chat_area.yview(tk.END)
         except Exception as e:
