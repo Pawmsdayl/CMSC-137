@@ -27,7 +27,7 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
             print(received_message)
             
             # Validate the received message using CRC
-            is_valid = crc_validate(received_message, "10011")
+            is_valid, remainder = crc_validate(received_message, "10011")
             
             if is_valid:
                 # Translate the message from binary to ASCII
@@ -40,7 +40,7 @@ def handle_client(client_socket: socket.socket, client_address: tuple):
                 valid_status = "No"
             
             # Broadcast the message to all other clients
-            broadcast(received_message, translated_message, valid_status, name, client_socket)
+            broadcast(received_message, translated_message, valid_status, remainder, name, client_socket)
             
         except Exception as e:
             print(f"Error handling client message: {e}")
@@ -55,6 +55,7 @@ def broadcast(
         received_message: str,
         translated_message: str = None,
         valid_status: str = None,
+        remainder: str = None,
         sender_name: str = None,
         client_socket: socket.socket = None,
         is_join_message: bool = False
@@ -75,6 +76,7 @@ def broadcast(
             f"Name: {sender_name}\n"
             f"Message: {received_message}\n"
             f"Valid: {valid_status}\n"
+            f"Remainder: {remainder}\n"
             f"Translated: {translated_message}\n\n"
         )
     
@@ -86,8 +88,8 @@ def broadcast(
         if client != client_socket:
             # Send the message as binary (after CRC encoding and error introduction)
             binary_message = ''.join(format(ord(char), '07b') for char in received_message)
-            crc_message = crc_encode(binary_message, )
-            transmitted_message = introduce_error(crc_message)
+            crc_message = crc_encode(binary_message, "10011")
+            transmitted_message, is_error = introduce_error(crc_message)
             client.send(transmitted_message.encode())
 
 def send_server_message():
@@ -102,29 +104,24 @@ def send_server_message():
             message = f"[SERVER]: {message}"
             
             # Encode with CRC
-            crc_message, remainder = crc_encode(message, "10011")
+            crc_message = crc_encode(message, "10011")
             
             # Introduce a 5% error to the message
-            transmitted_message = introduce_error(crc_message)
+            transmitted_message, is_error = introduce_error(crc_message)
             
             # Send the message to all clients
             for client in clients:
                 client.send(transmitted_message.encode())
-                
+            
             # Display the sent message in the server GUI as the sender
             chat_area.config(state=tk.NORMAL)
             
-            
-            # Validate the transmitted message after error introduction
-            is_valid = crc_validate(transmitted_message, "10011")
-
             # Check if the remainder is zero (valid) or non-zero (error)
-            if not is_valid:
+            if is_error:
                 chat_area.insert(
                     tk.END,
                     f"Message: {message}\n"
                     f"Sent: {transmitted_message}\n"
-                    # f"Remainder: {remainder}\n"
                     f"Message was not sent correctly\n\n"
                 )
             else:

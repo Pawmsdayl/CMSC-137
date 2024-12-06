@@ -20,7 +20,7 @@ def receive_messages():
             # Receive the encoded message from the server
             message = client_socket.recv(1024).decode()
             
-            is_valid = crc_validate(message, "10011")
+            is_valid, remainder = crc_validate(message, "10011")
             
             # Parse the message for validity
             if is_valid:
@@ -38,6 +38,7 @@ def receive_messages():
             
             # Display message in the chat area
             chat_area.config(state=tk.NORMAL)
+
             chat_area.insert(
                 tk.END,
                 f"Name: {sender_name}\n"
@@ -85,10 +86,10 @@ def send_message():
             # binary_message = ''.join(format(ord(char), '07b') for char in message)
 
             # Encode with CRC
-            crc_message, remainder = crc_encode(message, "10011")
+            crc_message = crc_encode(message, "10011")
 
             # Introduce a 5% error
-            transmitted_message = introduce_error(crc_message)
+            transmitted_message, is_error = introduce_error(crc_message)
             
             print(transmitted_message)
 
@@ -98,16 +99,12 @@ def send_message():
             # Display on GUI as sender
             chat_area.config(state=tk.NORMAL)
             
-            # Validate the transmitted message after error introduction
-            is_valid = crc_validate(transmitted_message, "10011")
-
             # Check if the remainder is zero (valid) or non-zero (error)
-            if not is_valid:
+            if is_error:
                 chat_area.insert(
                     tk.END,
                     f"Message: {message}\n"
                     f"Sent: {transmitted_message}\n"
-                    # f"Remainder: {remainder}\n"
                     f"Message was not sent correctly\n\n"
                 )
             else:
